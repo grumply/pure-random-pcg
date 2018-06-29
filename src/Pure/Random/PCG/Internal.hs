@@ -81,8 +81,6 @@ initialSeed x =
     in 
         result
 
-
-
 #elif (WORD_SIZE_IN_BITS == 64)
 
 {-# INLINE pcg_step #-}
@@ -124,6 +122,7 @@ initialSeed x =
 
     in 
         result
+
 #else
 
 -- *****************************************************************************

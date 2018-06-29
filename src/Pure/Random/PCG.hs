@@ -1,13 +1,16 @@
-{-# LANGUAGE ViewPatterns, BangPatterns #-}
+{-# LANGUAGE ViewPatterns, BangPatterns, CPP #-}
 module Pure.Random.PCG (module Pure.Random.PCG, newSeed, initialSeed, System.Random.RandomGen(..), System.Random.Random(..)) where
 
 import Pure.Random.PCG.Internal
 
 import Control.Monad
 import Control.Arrow ((&&&))
-import Data.Bits ((.|.),xor)
+import Data.Bits ((.|.),(.&.),xor)
 import Data.Foldable as F
 import Data.List
+import Data.Int
+
+import qualified Data.Vector as V
 
 import qualified System.Random
 
@@ -15,9 +18,22 @@ import qualified System.Random
 -- On GHC and 64-bit word size, Pure.Random.PCG.Internal uses the 64-bit RXS M XS pcg variant.
 -- On GHCJS or GHC and 32-bit word size, Pure.Random.PCG.Internal uses the 32-bit RXS M XS pcg variant.
 -- This implementation runs on the order of 5 Gb/s (64-bit); not exceptional, but not terrible for Haskell.
--- The code produced by GHCJS is competetive with or better than the browser-based Math.random().
--- For better performance, use the primitive Generators (int,bool,oneIn,randomint,randomints,ints)
--- rather than the System.Random.Random typeclass methods.
+--
+-- For Doubles, the code produced by GHCJS is quite a bit slower than the browser-based Math.random().
+-- For non-Doubles, especially Ints, the code produced by GHCJS is competetive with or better than the 
+-- browser-based Math.random(). 
+--
+-- Where this library excels is in easily creating and composing reproducible random streams.
+--
+-- For best performance, use the primitive Generators (int,intR,double,doublrR,bool,oneIn)
+-- along with (list,sample,sampleVector) rather than the System.Random.Random typeclass methods.
+--
+-- To construct complex values, use the Applicative instance:
+-- 
+-- > data C = Int :+ Int
+-- >
+-- > randomC :: Generator C
+-- > randomC = pure (:+) <*> int <*> int
 
 newtype Generator a = Generator { generate :: Seed -> (Seed,a) }
 instance Functor Generator where
@@ -53,22 +69,49 @@ boundedRand bound = Generator $
     let !threshold = negate bound `rem` bound
     in go threshold
   where
+    {-# INLINE go #-}
     go threshold = go'
       where
-        go' (generate randomint -> (!seed,!r)) 
+        {-# INLINE go' #-}
+        go' (generate int -> (!seed,!r)) 
           | r >= threshold = 
             let !br = r `rem` bound
             in (seed,br)
           | otherwise = go' seed
 
 {-# INLINE int #-}
-int :: Int -> Int -> Generator Int
-int lo hi
-  | lo < hi = let !range = hi - lo + 1
-              in pure (+ lo) <*> boundedRand range
-  | hi < lo = let !range = lo - hi + 1
-              in pure (+ lo) <*> boundedRand range
-  | otherwise = pure lo
+int :: Generator Int
+int = Generator (pcg_step &&& pcg_peel)
+
+{-# INLINE intR #-}
+intR :: Int -> Int -> Generator Int
+intR lo hi
+  | hi < lo   = intR hi lo 
+  | hi == lo  = pure lo
+  | otherwise = 
+    let !range = hi - lo + 1
+    in pure (+ lo) <*> boundedRand range
+
+{-# INLINE doubleR #-}
+doubleR :: Double -> Double -> Generator Double
+doubleR lo hi
+  | hi < lo   = doubleR hi lo
+  | lo == hi  = pure lo
+  | otherwise = Generator go
+    where
+      {-# INLINE go #-}
+      go seed =
+        let 
+            !seed' = pcg_next seed
+            !x = fromIntegral (pcg_peel seed) :: Int32
+            !int32Count = realToFrac $ toInteger (maxBound :: Int32) - toInteger (minBound :: Int32) + 1
+            !scaled_x = (0.5 * lo + 0.5 * hi) + ((0.5 * hi - 0.5 * lo) / (0.5 * int32Count)) * fromIntegral x
+        in 
+            ( seed', scaled_x )
+
+{-# INLINE double #-}
+double :: Generator Double
+double = doubleR 0.0 1.0
 
 {-# INLINE bool #-}
 bool :: Generator Bool
@@ -95,36 +138,38 @@ sample xs =
       | n == 0 = Just x
       | otherwise = continue (n - 1)
 
+{-# INLINE sampleVector #-}
+sampleVector :: V.Vector a -> Generator (Maybe a)
+sampleVector v =
+    let !l = V.length v
+    in if l == 0 then pure Nothing else Generator (go l)
+  where
+    {-# INLINE go #-}
+    go len seed =
+        let (!seed',!l) = step (boundedRand len) seed
+            x = V.unsafeIndex v l
+        in (seed',Just x)
+
 {-# INLINE independentSeed #-}
 independentSeed :: Generator Seed
 independentSeed = Generator go 
   where
     {-# INLINE go #-}
     go seed0 = 
-        let !gen = int 0 maxBound
+        let !gen = intR 0 maxBound
             (!seed1,(!state,!b,!c)) = step (pure (,,) <*> gen <*> gen <*> gen) seed0
             !incr = (b `xor` c) .|. 1
             !seed' = pcg_next (Seed state incr)
         in (seed',seed1)
 
-{-# INLINE randomint #-}
-randomint :: Generator Int
-randomint = Generator (pcg_step &&& pcg_peel)
-
-{-# INLINE randomints #-}
-randomints :: Seed -> [Int]
-randomints = unfoldr (\seed -> let (!seed',!r) = step randomint seed in Just (r,seed'))
-
-{-# INLINE ints #-}
-ints :: Int -> Int -> Seed -> [Int]
-ints lo hi = 
-    let !gen = int lo hi
-    in unfoldr (\seed -> let (!seed',!r) = step gen seed in Just (r,seed')) 
+{-# INLINE list #-}
+list :: Generator a -> Seed -> [a]
+list gen = unfoldr (\seed -> let (!seed',!r) = step gen seed in Just (r,seed'))
 
 instance System.Random.RandomGen Seed where
     {-# INLINE next #-}
     next seed = 
-        let (!seed',!i) = step randomint seed
+        let (!seed',!i) = step int seed
         in (i,seed')
     {-# INLINE split #-}
     split seed =
