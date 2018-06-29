@@ -18,25 +18,13 @@ import qualified System.Random
 -- Inspired by Max Goldstein's elm-random-pcg library: https://github.com/mgold/elm-random-pcg
 -- On GHC and 64-bit word size, Pure.Random.PCG.Internal uses the 64-bit RXS M XS pcg variant.
 -- On GHCJS or GHC and 32-bit word size, Pure.Random.PCG.Internal uses the 32-bit RXS M XS pcg variant.
--- On GHC, in trivial cases, this implementation runs on the order of 60 Gb/s for Ints (64-bit) and 6Gb/s for Doubles.
 --
 -- For Doubles, the code produced by GHCJS is quite a bit slower than the browser-based Math.random().
 -- For non-Doubles, especially Ints, the code produced by GHCJS is competetive with or better than the 
 -- browser-based Math.random(). 
 --
--- Where this library excels is in easily creating and composing reproducible random streams.
---
 -- For best performance, use the primitive Generators (int,intR,double,doublrR,bool,oneIn)
 -- along with (list,sample,sampleVector) rather than the System.Random.Random typeclass methods.
---
--- To construct complex values, use the Applicative instance:
--- 
--- > data C = Int :+ Int
--- >
--- > randomC :: Generator C
--- > randomC = pure (:+) <*> int <*> int
---
--- 
 
 newtype Generator a = Generator { generate :: Seed -> (Seed,a) }
 instance Functor Generator where
