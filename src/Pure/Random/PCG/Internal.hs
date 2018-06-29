@@ -1,9 +1,9 @@
-{-# LANGUAGE MagicHash, BangPatterns, CPP #-}
+{-# LANGUAGE MagicHash, BangPatterns, CPP, ViewPatterns #-}
 module Pure.Random.PCG.Internal where
 
 import Data.Bits ((.&.),xor)
 import GHC.Base (Int(..),uncheckedIShiftRL#)
-
+import Data.Word
 import qualified System.Random
 
 #ifndef __GHCJS__
@@ -28,10 +28,15 @@ data Seed = Seed {-# UNPACK #-}!Int {-# UNPACK #-}!Int
 uncheckedIShiftRL :: Int -> Int -> Int 
 uncheckedIShiftRL (I# n) (I# i) = I# (uncheckedIShiftRL# n i)
 
+{-# INLINE toWord #-}
+toWord :: Int -> Word
+toWord = fromIntegral
+
 {-# INLINE pcg_advance_lcg #-}
 pcg_advance_lcg :: Int -> Int -> Int -> Int -> Int
-pcg_advance_lcg state delta cur_mult cur_plus = go cur_mult cur_plus 1 0 delta
+pcg_advance_lcg (toWord -> state) (toWord -> delta) (toWord -> cur_mult) (toWord -> cur_plus) = fromIntegral (go cur_mult cur_plus 1 0 delta)
   where
+    go :: Word -> Word -> Word -> Word -> Word -> Word
     go !cur_mult !cur_plus !acc_mult !acc_plus !delta
       | delta > 0 =
         if (delta .&. 1 /= 0) 
@@ -47,7 +52,7 @@ pcg_step (Seed state incr) = Seed (state * 2891336453 + incr) incr
 
 {-# INLINE pcg_advance #-}
 pcg_advance :: Seed -> Int -> Seed
-pcg_advance (Seed state incr) delta = Seed (pcg_advance_lcg state delta 747796405 incr) incr
+pcg_advance (Seed state incr) delta = Seed (pcg_advance_lcg state delta 1664525 incr) incr
 
 {-# INLINE pcg_next #-}
 pcg_next :: Seed -> Seed

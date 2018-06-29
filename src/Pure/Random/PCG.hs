@@ -1,4 +1,4 @@
-{-# LANGUAGE ViewPatterns, BangPatterns, CPP #-}
+{-# LANGUAGE ViewPatterns, BangPatterns, CPP, ScopedTypeVariables #-}
 module Pure.Random.PCG (module Pure.Random.PCG, newSeed, initialSeed, System.Random.RandomGen(..), System.Random.Random(..)) where
 
 import Pure.Random.PCG.Internal
@@ -34,6 +34,8 @@ import qualified System.Random
 -- >
 -- > randomC :: Generator C
 -- > randomC = pure (:+) <*> int <*> int
+--
+-- 
 
 newtype Generator a = Generator { generate :: Seed -> (Seed,a) }
 instance Functor Generator where
@@ -162,9 +164,22 @@ independentSeed = Generator go
             !seed' = pcg_next (Seed state incr)
         in (seed',seed1)
 
+{-# INLINE choose #-}
+choose :: forall a. (Bounded a,Enum a) => Generator a
+choose = pure toEnum <*> intR 0 (fromEnum (maxBound :: a))
+
 {-# INLINE list #-}
 list :: Generator a -> Seed -> [a]
 list gen = unfoldr (\seed -> let (!seed',!r) = step gen seed in Just (r,seed'))
+
+{-# INLINE advance #-}
+advance :: Int -> Seed -> Seed
+advance = flip pcg_advance
+
+{-# INLINE retract #-}
+-- retract n . advance n == id
+retract :: Int -> Seed -> Seed
+retract steps = flip pcg_advance (negate steps)
 
 instance System.Random.RandomGen Seed where
     {-# INLINE next #-}
