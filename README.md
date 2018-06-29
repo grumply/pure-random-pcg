@@ -72,7 +72,7 @@ data Dir = North | South | East | West deriving (Bounded,Enum,Show)
 main = do
   seed <- newSeed
   let dirs :: [Dir]
-      dirs = list choose
+      dirs = list choose seed
   print $ take 10 dirs
 ```
 
@@ -81,7 +81,7 @@ Knuth Fisher-Yates shuffle.
 ```haskell
 main = do
   seed <- newSeed
-  print $ shuffle [1..10]
+  print $ shuffle [1..10] seed
 ```
 
 ### Thanks
