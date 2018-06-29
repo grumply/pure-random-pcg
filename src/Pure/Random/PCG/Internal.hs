@@ -4,6 +4,7 @@ module Pure.Random.PCG.Internal where
 import Data.Bits ((.&.),xor)
 import GHC.Base (Int(..),uncheckedIShiftRL#)
 import Data.Word
+import Data.Int
 import qualified System.Random
 
 #ifndef __GHCJS__
@@ -23,6 +24,10 @@ newSeed = initialSeed <$> random_seed_js
 
 data Seed = Seed {-# UNPACK #-}!Int {-# UNPACK #-}!Int 
   deriving (Eq,Show)
+
+{-# INLINE halfInt32Count #-}
+halfInt32Count :: Double
+halfInt32Count = 0.5 * realToFrac (toInteger (maxBound :: Int32) - toInteger (minBound :: Int32) + 1)
 
 {-# INLINE uncheckedIShiftRL #-}
 uncheckedIShiftRL :: Int -> Int -> Int 
@@ -45,10 +50,6 @@ pcg_advance_lcg (toWord -> state) (toWord -> delta) (toWord -> cur_mult) (toWord
       | otherwise = acc_mult * state + acc_plus
 
 #if ( defined __GHCJS__ || WORD_SIZE_IN_BITS == 32 )
-
-{-# INLINE pcg_step #-}
-pcg_step :: Seed -> Seed
-pcg_step (Seed state incr) = Seed (state * 2891336453 + incr) incr
 
 {-# INLINE pcg_advance #-}
 pcg_advance :: Seed -> Int -> Seed
@@ -87,10 +88,6 @@ initialSeed x =
         result
 
 #elif (WORD_SIZE_IN_BITS == 64)
-
-{-# INLINE pcg_step #-}
-pcg_step :: Seed -> Seed
-pcg_step (Seed state incr) = Seed (state * 1442695040888963407 + incr) incr
 
 {-# INLINE pcg_advance #-}
 pcg_advance :: Seed -> Int -> Seed

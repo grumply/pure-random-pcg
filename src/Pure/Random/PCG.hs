@@ -18,7 +18,7 @@ import qualified System.Random
 -- Inspired by Max Goldstein's elm-random-pcg library: https://github.com/mgold/elm-random-pcg
 -- On GHC and 64-bit word size, Pure.Random.PCG.Internal uses the 64-bit RXS M XS pcg variant.
 -- On GHCJS or GHC and 32-bit word size, Pure.Random.PCG.Internal uses the 32-bit RXS M XS pcg variant.
--- This implementation runs on the order of 5 Gb/s (64-bit); not exceptional, but not terrible for Haskell.
+-- On GHC, in trivial cases, this implementation runs on the order of 60 Gb/s for Ints (64-bit) and 6Gb/s for Doubles.
 --
 -- For Doubles, the code produced by GHCJS is quite a bit slower than the browser-based Math.random().
 -- For non-Doubles, especially Ints, the code produced by GHCJS is competetive with or better than the 
@@ -84,7 +84,7 @@ boundedRand bound = Generator $
 
 {-# INLINE int #-}
 int :: Generator Int
-int = Generator (pcg_step &&& pcg_peel)
+int = Generator (pcg_next &&& pcg_peel)
 
 {-# INLINE intR #-}
 intR :: Int -> Int -> Generator Int
@@ -107,10 +107,12 @@ doubleR lo hi
         let 
             !seed' = pcg_next seed
             !x = fromIntegral (pcg_peel seed) :: Int32
-            !int32Count = realToFrac $ toInteger (maxBound :: Int32) - toInteger (minBound :: Int32) + 1
-            !scaled_x = (0.5 * lo + 0.5 * hi) + ((0.5 * hi - 0.5 * lo) / (0.5 * int32Count)) * fromIntegral x
+            !hhi = 0.5 * hi
+            !hlo = 0.5 * lo
+            !scaled_x = (hlo + hhi) + ((hhi - hlo) / halfInt32Count) * fromIntegral x
         in 
             ( seed', scaled_x )
+
 
 {-# INLINE double #-}
 double :: Generator Double
