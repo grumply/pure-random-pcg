@@ -11,8 +11,13 @@ import Data.List
 
 import qualified System.Random
 
--- Modeled after Max Goldstein's elm-random-pcg library: https://github.com/mgold/elm-random-pcg
--- This module is meant for GHCJS and will not generate sufficiently random values when `sizeOf (undefined :: Int) == 64`.
+-- Inspired by Max Goldstein's elm-random-pcg library: https://github.com/mgold/elm-random-pcg
+-- On GHC and 64-bit word size, Pure.Random.PCG.Internal uses the 64-bit RXS M XS pcg variant.
+-- On GHCJS or GHC and 32-bit word size, Pure.Random.PCG.Internal uses the 32-bit RXS M XS pcg variant.
+-- This implementation runs on the order of 5 Gb/s (64-bit); not exceptional, but not terrible for Haskell.
+-- The code produced by GHCJS is competetive with or better than the browser-based Math.random().
+-- For better performance, use the primitive Generators (int,bool,oneIn,randomint,randomints,ints)
+-- rather than the System.Random.Random typeclass methods.
 
 newtype Generator a = Generator { generate :: Seed -> (Seed,a) }
 instance Functor Generator where
@@ -20,7 +25,7 @@ instance Functor Generator where
     fmap f (Generator g) = Generator (fmap (\(seed,a) -> let !b = f a in (seed,b)) g)
 instance Applicative Generator where
     {-# INLINE pure #-}
-    pure a = Generator (\seed -> (seed,a)) -- useful for (a -> b), bad for Ints....
+    pure a = Generator (\seed -> (seed,a))
     {-# INLINE (<*>) #-}
     (<*>) (Generator gfs) (Generator gas) = Generator $ \seed0 ->
         let
