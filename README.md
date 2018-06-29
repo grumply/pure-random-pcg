@@ -2,6 +2,10 @@
 
 Implementation of the [RXS-M-XS](https://en.wikipedia.org/wiki/Permuted_congruential_generator#Variants) variant of the [permuted-congruential-generator](https://en.wikipedia.org/wiki/Permuted_congruential_generator) suite. RXS-M-XS was chosen for best browser performance.
 
+On a 2012 Intel i7-3770 @ 3.4GHz, this implementation achieves throughputs of +60Gb/s (64-bit ints); more than 1/ns.
+
+On the same machine in Chrome v67, this implementation achieves thoughputs of .6Gb/s (32-bit ints); 1/50ns.
+
 ## Features
 
 `pure-random-pcg` comes with a convenient set of combinators.
