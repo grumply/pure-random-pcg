@@ -18,7 +18,7 @@ main = do
       (seed3,b)  = step bool seed2
       (seed4,i') = step (intR 0 10) seed3
       (_,d')     = step (doubleR 1.5 2.5) seed4
-  print i
+  print (i,d,b,i',d')
 ```
 
 ### Composability
