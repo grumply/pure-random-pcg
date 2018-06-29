@@ -11,6 +11,7 @@ import Data.List
 import Data.Int
 
 import qualified Data.Vector as V
+import qualified Data.Vector.Mutable as MV
 
 import qualified System.Random
 
@@ -180,6 +181,25 @@ advance = flip pcg_advance
 -- retract n . advance n == id
 retract :: Int -> Seed -> Seed
 retract steps = flip pcg_advance (negate steps)
+
+{-# INLINE shuffle #-}
+shuffle :: [a] -> Seed -> [a]
+shuffle as = V.toList . shuffleVector (V.fromList as)
+
+{-# INLINE shuffleVector #-}
+shuffleVector :: V.Vector a -> Seed -> V.Vector a
+shuffleVector v0 seed = V.modify (\v -> go v seed (MV.length v - 1)) v0
+  where
+    {-# INLINE go #-}
+    go v = go' 
+      where
+        {-# INLINE go' #-}
+        go' !seed !i 
+          | i <= 0    = return ()
+          | otherwise = do
+            let (seed',j) = step (intR 0 (i + 1)) seed
+            MV.unsafeSwap v i j
+            go' seed' (i - 1)
 
 instance System.Random.RandomGen Seed where
     {-# INLINE next #-}
