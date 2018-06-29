@@ -86,4 +86,4 @@ main = do
 
 ### Thanks
 
-This library was inspired by [Max Goldstein's](https://github.com/mgold/elm-random-pcg/blob/master/src/Random/Pcg.elm) [elm-random-pcg](https://github.com/mgold/elm-random-pcg).
+This library was inspired by [Max Goldstein's](https://github.com/mgold) [elm-random-pcg](https://github.com/mgold/elm-random-pcg).
