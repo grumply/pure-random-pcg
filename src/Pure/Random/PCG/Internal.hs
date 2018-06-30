@@ -1,8 +1,8 @@
-{-# LANGUAGE MagicHash, BangPatterns, CPP, ViewPatterns #-}
+{-# LANGUAGE MagicHash, BangPatterns, CPP, ViewPatterns, TypeFamilies, FlexibleContexts #-}
 module Pure.Random.PCG.Internal where
 
-import Data.Bits ((.&.),xor)
-import GHC.Base (Int(..),uncheckedIShiftRL#)
+import Data.Bits
+import GHC.Base
 import Data.Word
 import Data.Int
 import qualified System.Random
@@ -132,3 +132,48 @@ initialSeed x =
 -- *****************************************************************************
 
 #endif
+
+-- The following utility methods come from mwc-random by Bryan O'Sullivan
+wordToFloat :: Word32 -> Float
+wordToFloat x      = (fromIntegral i * m_inv_32) + 0.5 + m_inv_33
+    where m_inv_33 = 1.16415321826934814453125e-10
+          m_inv_32 = 2.3283064365386962890625e-10
+          i        = fromIntegral x :: Int32
+{-# INLINE wordToFloat #-}
+
+wordsToDouble :: Word32 -> Word32 -> Double
+wordsToDouble x y  = (fromIntegral u * m_inv_32 + (0.5 + m_inv_53) +
+                     fromIntegral (v .&. 0xFFFFF) * m_inv_52)
+    where m_inv_52 = 2.220446049250313080847263336181640625e-16
+          m_inv_53 = 1.1102230246251565404236316680908203125e-16
+          m_inv_32 = 2.3283064365386962890625e-10
+          u        = fromIntegral x :: Int32
+          v        = fromIntegral y :: Int32
+{-# INLINE wordsToDouble #-}
+
+word64ToDouble :: Word64 -> Double
+word64ToDouble x = (fromIntegral u * m_inv_32 + (0.5 + m_inv_53) +
+                   fromIntegral (v .&. 0xFFFFF) * m_inv_52)
+    where m_inv_52 = 2.220446049250313080847263336181640625e-16
+          m_inv_53 = 1.1102230246251565404236316680908203125e-16
+          m_inv_32 = 2.3283064365386962890625e-10
+          u        = fromIntegral (shiftR x 32) :: Int32
+          v        = fromIntegral x :: Int32
+{-# INLINE word64ToDouble #-}
+
+sub :: (Integral a, Integral b) => a -> a -> b
+sub x y = fromIntegral x - fromIntegral y
+{-# INLINE sub #-}
+
+add :: (Integral a, Integral b) => a -> b -> a
+add m x = m + fromIntegral x
+{-# INLINE add #-}
+
+wordsTo64Bit :: (Integral a) => Word32 -> Word32 -> a
+wordsTo64Bit x y =
+    fromIntegral ((fromIntegral x `shiftL` 32) .|. fromIntegral y :: Word64)
+{-# INLINE wordsTo64Bit #-}
+
+wordToBool :: Word32 -> Bool
+wordToBool i = (i .&. 1) /= 0
+{-# INLINE wordToBool #-}

@@ -1,5 +1,5 @@
-{-# LANGUAGE ViewPatterns, BangPatterns, CPP, ScopedTypeVariables #-}
-module Pure.Random.PCG (module Pure.Random.PCG, newSeed, initialSeed, System.Random.RandomGen(..), System.Random.Random(..)) where
+{-# LANGUAGE ViewPatterns, BangPatterns, ScopedTypeVariables, MagicHash, UnboxedTuples #-}
+module Pure.Random.PCG (module Pure.Random.PCG, newSeed, initialSeed) where
 
 import Pure.Random.PCG.Internal
 
@@ -8,8 +8,7 @@ import Control.Arrow ((&&&))
 import Data.Bits ((.|.),(.&.),xor)
 import Data.List
 import Data.Int
-
-import qualified System.Random
+import Data.Word
 
 -- Inspired by Max Goldstein's elm-random-pcg library: https://github.com/mgold/elm-random-pcg
 -- On GHC and 64-bit word size, Pure.Random.PCG.Internal uses the 64-bit RXS M XS pcg variant.
@@ -43,49 +42,12 @@ instance Monad Generator where
     {-# INLINE (>>=) #-}
     ga >>= agb = Generator $ \seed -> 
         let (!seed',!a) = generate ga seed
-            !gb = agb a
-        in generate gb seed'
-
-{-# INLINE boundedRand #-}
-boundedRand :: Int -> Generator Int
-boundedRand bound = Generator $
-    let !threshold = negate bound `rem` bound
-    in go threshold
-  where
-    {-# INLINE go #-}
-    go threshold = go'
-      where
-        {-# INLINE go' #-}
-        go' (generate int -> (!seed,!r)) 
-          | r >= threshold = 
-            let !br = r `rem` bound
-            in (seed,br)
-          | otherwise = go' seed
+            (!seed'',!b) = generate (agb a) seed'
+        in (seed'',b)
 
 {-# INLINE int #-}
 int :: Generator Int
 int = Generator (pcg_next &&& pcg_peel)
-
-{-# INLINE intR #-}
-intR :: Int -> Int -> Generator Int
-intR lo hi
-  | hi < lo   = intR hi lo 
-  | hi == lo  = pure lo
-  | otherwise = 
-    let !range = hi - lo + 1
-    in pure (+ lo) <*> boundedRand range
-
-{-# INLINE independentSeed #-}
-independentSeed :: Generator Seed
-independentSeed = Generator go 
-  where
-    {-# INLINE go #-}
-    go seed0 = 
-        let !gen = intR 0 maxBound
-            (!seed1,(!state,!b,!c)) = generate (pure (,,) <*> gen <*> gen <*> gen) seed0
-            !incr = (b `xor` c) .|. 1
-            !seed' = pcg_next (Seed state incr)
-        in (seed',seed1)
 
 {-# INLINE list #-}
 list :: Generator a -> Seed -> [a]
@@ -100,12 +62,6 @@ advance = flip pcg_advance
 retract :: Int -> Seed -> Seed
 retract steps = flip pcg_advance (negate steps)
 
-instance System.Random.RandomGen Seed where
-    {-# INLINE next #-}
-    next seed = 
-        let (!seed',!i) = generate int seed
-        in (i,seed')
-    {-# INLINE split #-}
-    split seed =
-        let (!seed',!randSeed) = generate independentSeed seed
-        in (randSeed,seed')
+{-# INLINE word32 #-}
+word32 :: Generator Word32
+word32 = pure fromIntegral <*> int

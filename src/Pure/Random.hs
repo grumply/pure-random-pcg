@@ -1,9 +1,10 @@
 {-# LANGUAGE CPP, FlexibleContexts, TypeFamilies, ScopedTypeVariables, BangPatterns, MagicHash, UnboxedTuples #-}
-module Pure.Random where
+module Pure.Random (module Pure.Random, module Pure.Random.PCG, System.Random.RandomGen(..), System.Random.Random(..)) where
 
 import Data.Bits
 import Data.Foldable as F
 import Data.Int
+import Data.Proxy
 import Data.Word
 
 import Pure.Random.PCG
@@ -12,103 +13,64 @@ import Pure.Random.PCG.Internal
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as MV
 
+import qualified System.Random
+
 #ifndef __GHCJS__
 #import "MachDeps.h"
 #endif
 
--- This module is a port of Bryan O'Sullivan's mwc-random
+instance System.Random.RandomGen Seed where
+    {-# INLINE next #-}
+    next seed = 
+        let (!seed',!i) = generate int seed
+        in (i,seed')
+    {-# INLINE split #-}
+    split seed =
+        let (!seed',!randSeed) = generate independentSeed seed
+        in (randSeed,seed')
 
-word32 :: Generator Word32
-word32 = pure fromIntegral <*> int
-
-wordToFloat :: Word32 -> Float
-wordToFloat x      = (fromIntegral i * m_inv_32) + 0.5 + m_inv_33
-    where m_inv_33 = 1.16415321826934814453125e-10
-          m_inv_32 = 2.3283064365386962890625e-10
-          i        = fromIntegral x :: Int32
-{-# INLINE wordToFloat #-}
-
-wordsToDouble :: Word32 -> Word32 -> Double
-wordsToDouble x y  = (fromIntegral u * m_inv_32 + (0.5 + m_inv_53) +
-                     fromIntegral (v .&. 0xFFFFF) * m_inv_52)
-    where m_inv_52 = 2.220446049250313080847263336181640625e-16
-          m_inv_53 = 1.1102230246251565404236316680908203125e-16
-          m_inv_32 = 2.3283064365386962890625e-10
-          u        = fromIntegral x :: Int32
-          v        = fromIntegral y :: Int32
-{-# INLINE wordsToDouble #-}
-
-word64ToDouble :: Word64 -> Double
-word64ToDouble x = (fromIntegral u * m_inv_32 + (0.5 + m_inv_53) +
-                   fromIntegral (v .&. 0xFFFFF) * m_inv_52)
-    where m_inv_52 = 2.220446049250313080847263336181640625e-16
-          m_inv_53 = 1.1102230246251565404236316680908203125e-16
-          m_inv_32 = 2.3283064365386962890625e-10
-          u        = fromIntegral (shiftR x 32) :: Int32
-          v        = fromIntegral x :: Int32
-{-# INLINE word64ToDouble #-}
-
-type family Unsigned a :: *
-type instance Unsigned Int8   = Word8
-type instance Unsigned Int16  = Word16
-type instance Unsigned Int32  = Word32
-type instance Unsigned Int64  = Word64
-type instance Unsigned Int    = Word
-type instance Unsigned Word8  = Word8
-type instance Unsigned Word16 = Word16
-type instance Unsigned Word32 = Word32
-type instance Unsigned Word64 = Word64
-type instance Unsigned Word   = Word
-
-sub :: (Integral a, Integral (Unsigned a)) => a -> a -> Unsigned a
-sub x y = fromIntegral x - fromIntegral y
-{-# INLINE sub #-}
-
-add :: (Integral a, Integral (Unsigned a)) => a -> Unsigned a -> a
-add m x = m + fromIntegral x
-{-# INLINE add #-}
-
-uniformRange :: ( Integral a, Bounded a, Variate a
-                , Integral (Unsigned a), Bounded (Unsigned a), Variate (Unsigned a))
-             => a -> a -> Generator a
-uniformRange x1 x2
-  | n == 0    = uniform -- Abuse overflow in unsigned types
-  | otherwise = loop
-  where
-    -- Allow ranges where x2<x1
-    (# i, j #) | x1 < x2   = (# x1, x2 #)
-               | otherwise = (# x2, x1 #)
-    n       = 1 + sub j i
-    buckets = maxBound `div` n
-    maxN    = buckets * n
-    loop    = do x <- uniform
-                 if x < maxN then return $! add i (x `div` buckets)
-                             else loop
-{-# INLINE uniformRange #-}
-
-wordsTo64Bit :: (Integral a) => Word32 -> Word32 -> a
-wordsTo64Bit x y =
-    fromIntegral ((fromIntegral x `shiftL` 32) .|. fromIntegral y :: Word64)
-{-# INLINE wordsTo64Bit #-}
-
-wordToBool :: Word32 -> Bool
-wordToBool i = (i .&. 1) /= 0
-
+-- | Variate taken from Bryan O'Sullivan's mwc-random with changes made 
+-- for uniformR for WORD_SIZE_IN_BITS <= 32 for performance. 
+--
+-- All integral types produce in the range [inclusive,inclusive], and
+-- fractional types produce in the range (exclusive,inclusive].
+--
+-- When generating bounded 64-bit values, if your range is less than 
+-- (maxBound :: Int32), generate a bounded Int32 variate in the range 
+-- (0,hi - lo) and add it to lo:
+-- 
+-- > let rangeGen = uniformR 0 (hi - lo) :: Generator Int32
+-- >     (seed',r) = generate rangeGen seed
+-- > in (seed',lo + r)
+--
+-- Fixing 64-bit generator performance is an open problem. All other generators
+-- should be reasonably fast at ~(byte-size * 8 Gb/s) while bounded 64-bit 
+-- values are ~(6.4 Gb/s) on a 2012 Intel(R) Core(TM) i7-3770 CPU @ 3.40GHz.
+--
+-- In GHCJS, performance is on par with the browser's Math.random() except in the 
+-- cases mentioned above where the same slowdown is seen for 64-bit values.
+--
 class Variate a where
     uniform :: Generator a
     uniformR :: a -> a -> Generator a
 
 instance Variate Int8 where
     uniform = pure fromIntegral <*> int
-    uniformR a b = uniformRange a b
+    {-# INLINE uniform #-}
+    uniformR a b = pure (floor :: Double -> Int8) <*> uniformR (fromIntegral a) (fromIntegral b + 1)
+    {-# INLINE uniformR #-}
 
 instance Variate Int16 where
     uniform = pure fromIntegral <*> int
-    uniformR a b = uniformRange a b
+    {-# INLINE uniform #-}
+    uniformR a b = pure (floor :: Double -> Int16) <*> uniformR (fromIntegral a) (fromIntegral b + 1)
+    {-# INLINE uniformR #-}
 
 instance Variate Int32 where
     uniform = pure fromIntegral <*> int
-    uniformR a b = uniformRange a b
+    {-# INLINE uniform #-}
+    uniformR a b = pure (floor :: Double -> Int32) <*> uniformR (fromIntegral a) (fromIntegral b + 1)
+    {-# INLINE uniformR #-}
 
 instance Variate Int64 where
 #if (defined __GHCJS__ || WORD_SIZE_IN_BITS == 32)
@@ -116,23 +78,37 @@ instance Variate Int64 where
 #else
     uniform = pure fromIntegral <*> int
 #endif
-    uniformR a b = uniformRange a b
+    {-# INLINE uniform #-}
+    uniformR a b = uniformRange (Proxy :: Proxy Word64) a b
+    {-# INLINE uniformR #-}
 
 instance Variate Int where
     uniform = int
-    uniformR a b = uniformRange a b
+    {-# INLINE uniform #-}
+#if (defined __GHCJS__ || WORD_SIZE_IN_BITS == 32)
+    uniformR a b = pure (floor :: Double -> Int) <*> uniformR (fromIntegral a) (fromIntegral b + 1)
+#else
+    uniformR a b = uniformRange (Proxy :: Proxy Word64) a b
+#endif
+    {-# INLINE uniformR #-}
 
 instance Variate Word8 where
     uniform = pure fromIntegral <*> int 
-    uniformR a b = uniformRange a b
+    {-# INLINE uniform #-}
+    uniformR a b = pure (floor :: Double -> Word8) <*> uniformR (fromIntegral a) (fromIntegral b + 1)
+    {-# INLINE uniformR #-}
 
 instance Variate Word16 where
     uniform = pure fromIntegral <*> int 
-    uniformR a b = uniformRange a b
+    {-# INLINE uniform #-}
+    uniformR a b = pure (floor :: Double -> Word16) <*> uniformR (fromIntegral a) (fromIntegral b + 1)
+    {-# INLINE uniformR #-}
 
 instance Variate Word32 where
     uniform = pure fromIntegral <*> int 
-    uniformR a b = uniformRange a b
+    {-# INLINE uniform #-}
+    uniformR a b = pure (floor :: Double -> Word32) <*> uniformR (fromIntegral a) (fromIntegral b + 1)
+    {-# INLINE uniformR #-}
 
 instance Variate Word64 where
 #if (defined __GHCJS__ || WORD_SIZE_IN_BITS == 32)
@@ -140,38 +116,50 @@ instance Variate Word64 where
 #else
     uniform = pure fromIntegral <*> int
 #endif
-    uniformR a b = uniformRange a b
+    {-# INLINE uniform #-}
+    uniformR a b = uniformRange (Proxy :: Proxy Word64) a b
+    {-# INLINE uniformR #-}
 
 instance Variate Word where
     uniform = pure fromIntegral <*> int
-    uniformR a b = uniformRange a b
+    {-# INLINE uniform #-}
+    uniformR a b = uniformRange (Proxy :: Proxy Word64) a b
+    {-# INLINE uniformR #-}
 
 instance Variate Bool where
     uniform = pure wordToBool <*> uniform
+    {-# INLINE uniform #-}
     uniformR a b
       | a == b = pure a
       | otherwise = uniform
+    {-# INLINE uniformR #-}
 
 instance Variate Float where
     uniform = pure wordToFloat <*> uniform
+    {-# INLINE uniform #-}
     uniformR a b = pure (\w -> a + (b - a) * wordToFloat w) <*> uniform
+    {-# INLINE uniformR #-}
 
 instance Variate Double where
 #if ( defined __GHCJS__ || WORD_SIZE_IN_BITS == 32 )
     uniformR a b = pure (\w1 w2 -> a + (b - a) * wordsToDouble w1 w2) <*> uniform <*> uniform
+    {-# INLINE uniformR #-}
     uniform = pure wordsToDouble <*> uniform <*> uniform
+    {-# INLINE uniform #-}
 #else
     uniformR a b = pure (\w -> a + (b - a) * wordsToDouble (fromIntegral $ shiftR w 32) (fromIntegral w)) <*> (uniform :: Generator Word64)
+    {-# INLINE uniformR #-}
     uniform = pure word64ToDouble <*> uniform
+    {-# INLINE uniform #-}
 #endif
 
 {-# INLINE bool #-}
 bool :: Generator Bool
-bool = pure (== 1) <*> boundedRand 1
+bool = oneIn 2
 
 {-# INLINE oneIn #-}
 oneIn :: Int -> Generator Bool
-oneIn n = pure (== 1) <*> boundedRand n
+oneIn n = pure (== 1) <*> uniformR 1 n
 
 {-# INLINE sample #-}
 sample :: Foldable f => f a -> Generator (Maybe a)
@@ -181,7 +169,7 @@ sample xs =
   where
     {-# INLINE go #-}
     go len seed = 
-        let (!seed',!l) = generate (boundedRand len) seed
+        let (!seed',!l) = generate (uniformR 0 len) seed
             !x = F.foldr go' (const Nothing) xs l
         in (seed',x)
 
@@ -198,7 +186,7 @@ sampleVector v =
   where
     {-# INLINE go #-}
     go len seed =
-        let (!seed',!l) = generate (boundedRand len) seed
+        let (!seed',!l) = generate (uniformR 0 len) seed
             x = V.unsafeIndex v l
         in (seed',Just x)
 
@@ -217,11 +205,48 @@ shuffleVector v0 seed = V.modify (\v -> go v seed (MV.length v - 1)) v0
         go' !seed !i 
           | i <= 0    = return ()
           | otherwise = do
-            let (seed',j) = generate (intR 0 (i + 1)) seed
+            let (seed',j) = generate (uniformR 0 (i + 1)) seed
             MV.unsafeSwap v i j
             go' seed' (i - 1)
 
 {-# INLINE choose #-}
 choose :: forall a. (Bounded a,Enum a) => Generator a
-choose = pure toEnum <*> intR 0 (fromEnum (maxBound :: a))
+choose = pure toEnum <*> uniformR 0 (fromEnum (maxBound :: a))
 
+{-# INLINE uniformRange #-}
+uniformRange :: forall a b. 
+                ( Integral a, Bounded a, Variate a
+                , Integral b, Bounded b, Variate b
+                ) => Proxy b -> a -> a -> Generator a
+uniformRange _ x1 x2 = Generator go
+  where
+    {-# INLINE go #-}
+    go seed
+        | n == 0    = generate uniform seed -- Abuse overflow in unsigned types
+        | otherwise = loop seed
+        where
+            (# i, j #) | x1 < x2   = (# x1, x2 #)
+                       | otherwise = (# x2, x1 #)
+            n = 1 + sub j i :: b
+            buckets = maxBound `div` n
+            maxN    = buckets * n
+            {-# INLINE loop #-}
+            loop seed = 
+                let (!seed',!x) = generate uniform seed
+                in if x < maxN 
+                    then 
+                        let !br = add i (fromIntegral (x `div` buckets))
+                        in (seed',br)
+                    else loop seed'
+
+{-# INLINE independentSeed #-}
+independentSeed :: Generator Seed
+independentSeed = Generator go 
+  where
+    {-# INLINE go #-}
+    go seed0 = 
+        let !gen = uniformR 0 maxBound
+            (!seed1,(!state,!b,!c)) = generate (pure (,,) <*> gen <*> gen <*> gen) seed0
+            !incr = (b `xor` c) .|. 1
+            !seed' = pcg_next (Seed state incr)
+        in (seed',seed1)
