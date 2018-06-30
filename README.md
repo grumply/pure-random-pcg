@@ -6,6 +6,10 @@ On a 2012 Intel i7-3770 @ 3.4GHz, this implementation achieves throughputs of +6
 
 On the same machine in Chrome v67, this implementation achieves thoughputs of .6Gb/s (32-bit ints); 20,000,000 per second.
 
+Be sure not to draw more than 2^32 variates from a single `Seed` on GHCJS or 32-bit GHC. If you need that many random values, use `independentSeed` to generate more `Seed`s.
+
+On 64-bit GHC, the period for this variant of pcg is 2^64, which you'd be unlikely to exhaust.
+
 ## Features
 
 `pure-random-pcg` comes with a convenient set of combinators.
