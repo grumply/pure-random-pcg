@@ -6,12 +6,8 @@ import Pure.Random.PCG.Internal
 import Control.Monad
 import Control.Arrow ((&&&))
 import Data.Bits ((.|.),(.&.),xor)
-import Data.Foldable as F
 import Data.List
 import Data.Int
-
-import qualified Data.Vector as V
-import qualified Data.Vector.Mutable as MV
 
 import qualified System.Random
 
@@ -46,13 +42,9 @@ instance Monad Generator where
     return = pure
     {-# INLINE (>>=) #-}
     ga >>= agb = Generator $ \seed -> 
-        let (!seed',!a) = step ga seed
+        let (!seed',!a) = generate ga seed
             !gb = agb a
         in generate gb seed'
-
-{-# INLINE step #-}
-step :: Generator a -> Seed -> (Seed,a)
-step (Generator gen) = gen
 
 {-# INLINE boundedRand #-}
 boundedRand :: Int -> Generator Int
@@ -83,66 +75,6 @@ intR lo hi
     let !range = hi - lo + 1
     in pure (+ lo) <*> boundedRand range
 
-{-# INLINE doubleR #-}
-doubleR :: Double -> Double -> Generator Double
-doubleR lo hi
-  | hi < lo   = doubleR hi lo
-  | lo == hi  = pure lo
-  | otherwise = Generator go
-    where
-      {-# INLINE go #-}
-      go seed =
-        let 
-            !seed' = pcg_next seed
-            !x = fromIntegral (pcg_peel seed) :: Int32
-            !hhi = 0.5 * hi
-            !hlo = 0.5 * lo
-            !scaled_x = (hlo + hhi) + ((hhi - hlo) / halfInt32Count) * fromIntegral x
-        in 
-            ( seed', scaled_x )
-
-
-{-# INLINE double #-}
-double :: Generator Double
-double = doubleR 0.0 1.0
-
-{-# INLINE bool #-}
-bool :: Generator Bool
-bool = pure (== 1) <*> boundedRand 1
-
-{-# INLINE oneIn #-}
-oneIn :: Int -> Generator Bool
-oneIn n = pure (== 1) <*> boundedRand n
-
-{-# INLINE sample #-}
-sample :: Foldable f => f a -> Generator (Maybe a)
-sample xs = 
-    let !l = F.length xs
-    in if l == 0 then pure Nothing else Generator (go l)
-  where
-    {-# INLINE go #-}
-    go len seed = 
-        let (!seed',!l) = step (boundedRand len) seed
-            !x = F.foldr go' (const Nothing) xs l
-        in (seed',x)
-
-    {-# INLINE go' #-}
-    go' x continue !n
-      | n == 0 = Just x
-      | otherwise = continue (n - 1)
-
-{-# INLINE sampleVector #-}
-sampleVector :: V.Vector a -> Generator (Maybe a)
-sampleVector v =
-    let !l = V.length v
-    in if l == 0 then pure Nothing else Generator (go l)
-  where
-    {-# INLINE go #-}
-    go len seed =
-        let (!seed',!l) = step (boundedRand len) seed
-            x = V.unsafeIndex v l
-        in (seed',Just x)
-
 {-# INLINE independentSeed #-}
 independentSeed :: Generator Seed
 independentSeed = Generator go 
@@ -150,18 +82,14 @@ independentSeed = Generator go
     {-# INLINE go #-}
     go seed0 = 
         let !gen = intR 0 maxBound
-            (!seed1,(!state,!b,!c)) = step (pure (,,) <*> gen <*> gen <*> gen) seed0
+            (!seed1,(!state,!b,!c)) = generate (pure (,,) <*> gen <*> gen <*> gen) seed0
             !incr = (b `xor` c) .|. 1
             !seed' = pcg_next (Seed state incr)
         in (seed',seed1)
 
-{-# INLINE choose #-}
-choose :: forall a. (Bounded a,Enum a) => Generator a
-choose = pure toEnum <*> intR 0 (fromEnum (maxBound :: a))
-
 {-# INLINE list #-}
 list :: Generator a -> Seed -> [a]
-list gen = unfoldr (\seed -> let (!seed',!r) = step gen seed in Just (r,seed'))
+list gen = unfoldr (\seed -> let (!seed',!r) = generate gen seed in Just (r,seed'))
 
 {-# INLINE advance #-}
 advance :: Int -> Seed -> Seed
@@ -172,31 +100,12 @@ advance = flip pcg_advance
 retract :: Int -> Seed -> Seed
 retract steps = flip pcg_advance (negate steps)
 
-{-# INLINE shuffle #-}
-shuffle :: [a] -> Seed -> [a]
-shuffle as = V.toList . shuffleVector (V.fromList as)
-
-{-# INLINE shuffleVector #-}
-shuffleVector :: V.Vector a -> Seed -> V.Vector a
-shuffleVector v0 seed = V.modify (\v -> go v seed (MV.length v - 1)) v0
-  where
-    {-# INLINE go #-}
-    go v = go' 
-      where
-        {-# INLINE go' #-}
-        go' !seed !i 
-          | i <= 0    = return ()
-          | otherwise = do
-            let (seed',j) = step (intR 0 (i + 1)) seed
-            MV.unsafeSwap v i j
-            go' seed' (i - 1)
-
 instance System.Random.RandomGen Seed where
     {-# INLINE next #-}
     next seed = 
-        let (!seed',!i) = step int seed
+        let (!seed',!i) = generate int seed
         in (i,seed')
     {-# INLINE split #-}
     split seed =
-        let (!seed',!randSeed) = step independentSeed seed
+        let (!seed',!randSeed) = generate independentSeed seed
         in (randSeed,seed')

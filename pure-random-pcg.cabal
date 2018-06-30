@@ -17,6 +17,7 @@ library
     vector
 
   exposed-modules:
+    Pure.Random
     Pure.Random.PCG
     Pure.Random.PCG.Internal
 
