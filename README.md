@@ -54,8 +54,9 @@ The implementation of SFMT doesn't naturally support bounded variate generation.
 | MWC8222      | 7.6ns          | 3.8ns         |
 | random       | 1500ns         | 300-1000ns**  |
 
-* Bounded Ints/Int64/Word/Word64 in (lo,hi) can be more efficiently produced if (hi - lo < maxBound :: Int32)
-** random takes longer for larger ranges
+\* Bounded Ints/Int64/Word/Word64 in (lo,hi) can be more efficiently produced if (hi - lo < maxBound :: Int32)
+
+\** random takes longer for larger ranges
 
 ## Features
 
