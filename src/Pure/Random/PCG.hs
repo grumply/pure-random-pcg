@@ -1,5 +1,5 @@
 {-# LANGUAGE ViewPatterns, BangPatterns, ScopedTypeVariables, MagicHash, UnboxedTuples #-}
-module Pure.Random.PCG (module Pure.Random.PCG, newSeed, initialSeed) where
+module Pure.Random.PCG (module Pure.Random.PCG, Seed, newSeed, initialSeed) where
 
 import Pure.Random.PCG.Internal
 
@@ -50,6 +50,7 @@ int :: Generator Int
 int = Generator (pcg_next &&& pcg_peel)
 
 {-# INLINE list #-}
+-- NOTE: list is more than 10x slower than a loop
 list :: Generator a -> Seed -> [a]
 list gen = unfoldr (\seed -> let (!seed',!r) = generate gen seed in Just (r,seed'))
 

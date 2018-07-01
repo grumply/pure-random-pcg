@@ -161,13 +161,13 @@ word64ToDouble x = (fromIntegral u * m_inv_32 + (0.5 + m_inv_53) +
           v        = fromIntegral x :: Int32
 {-# INLINE word64ToDouble #-}
 
-sub :: (Integral a, Integral b) => a -> a -> b
-sub x y = fromIntegral x - fromIntegral y
-{-# INLINE sub #-}
+isub :: (Integral a, Integral b) => a -> a -> b
+isub x y = fromIntegral x - fromIntegral y
+{-# INLINE isub #-}
 
-add :: (Integral a, Integral b) => a -> b -> a
-add m x = m + fromIntegral x
-{-# INLINE add #-}
+iadd :: (Integral a, Integral b) => a -> b -> a
+iadd m x = m + fromIntegral x
+{-# INLINE iadd #-}
 
 wordsTo64Bit :: (Integral a) => Word32 -> Word32 -> a
 wordsTo64Bit x y =

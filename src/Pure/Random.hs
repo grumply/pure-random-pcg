@@ -12,6 +12,7 @@ import Pure.Random.PCG.Internal
 
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as MV
+import qualified Data.Vector.Generic as G
 
 import qualified System.Random
 
@@ -215,7 +216,7 @@ uniformRange _ x1 x2 = Generator go
         where
             (# i, j #) | x1 < x2   = (# x1, x2 #)
                        | otherwise = (# x2, x1 #)
-            n = 1 + sub j i :: b
+            n = 1 + isub j i :: b
             buckets = maxBound `div` n
             maxN    = buckets * n
             {-# INLINE loop #-}
@@ -223,7 +224,7 @@ uniformRange _ x1 x2 = Generator go
                 let (!seed',!x) = generate uniform seed
                 in if x < maxN 
                     then 
-                        let !br = add i (fromIntegral (x `div` buckets))
+                        let !br = iadd i (fromIntegral (x `div` buckets))
                         in (seed',br)
                     else loop seed'
 
@@ -238,3 +239,38 @@ independentSeed = Generator go
             !incr = (b `xor` c) .|. 1
             !seed' = pcg_next (Seed state incr)
         in (seed',seed1)
+
+{-# INLINE uniformVector #-}
+uniformVector :: forall v a. (G.Vector v a, Variate a) => Int -> Generator (v a)
+uniformVector n = 
+    -- Since the state isn't recoverable from G.unfoldrN, 
+    -- we use an independent seed.
+    pure (G.unfoldrN n go) <*> independentSeed
+  where
+    {-# INLINE go #-}
+    go :: Seed -> Maybe (a,Seed)
+    go seed = 
+        let (seed',a) = generate uniform seed
+        in Just (a,seed')
+
+-- structural `pred` for Double
+-- `uniform` for Double produces in the range (0,1]. 
+-- To produce a Double in the interval [0,1):
+--
+-- > pure sub <*> uniform
+--
+sub :: Double -> Double
+sub = subtract (2**(-53))
+
+-- structural `succ` for Double
+sup :: Double -> Double
+sup = (+ (2**(-53)))
+
+-- structural `pred` for Float
+subFloat :: Float -> Float
+subFloat = subtract (2**(-33))
+
+-- structural `succ` for Float
+supFloat :: Float -> Float
+supFloat = (+ (2**(-33)))
+
