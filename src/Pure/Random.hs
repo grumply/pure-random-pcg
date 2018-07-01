@@ -163,20 +163,7 @@ oneIn n = pure (== 1) <*> uniformR 1 n
 
 {-# INLINE sample #-}
 sample :: Foldable f => f a -> Generator (Maybe a)
-sample xs = 
-    let !l = F.length xs
-    in if l == 0 then pure Nothing else Generator (go l)
-  where
-    {-# INLINE go #-}
-    go len seed = 
-        let (!seed',!l) = generate (uniformR 0 len) seed
-            !x = F.foldr go' (const Nothing) xs l
-        in (seed',x)
-
-    {-# INLINE go' #-}
-    go' x continue !n
-      | n == 0 = Just x
-      | otherwise = continue (n - 1)
+sample = sampleVector . V.fromList . F.toList
 
 {-# INLINE sampleVector #-}
 sampleVector :: V.Vector a -> Generator (Maybe a)
@@ -186,7 +173,7 @@ sampleVector v =
   where
     {-# INLINE go #-}
     go len seed =
-        let (!seed',!l) = generate (uniformR 0 len) seed
+        let (!seed',!l) = generate (uniformR 0 (len - 1)) seed
             x = V.unsafeIndex v l
         in (seed',Just x)
 
@@ -196,18 +183,19 @@ shuffle as = V.toList . shuffleVector (V.fromList as)
 
 {-# INLINE shuffleVector #-}
 shuffleVector :: V.Vector a -> Seed -> V.Vector a
-shuffleVector v0 seed = V.modify (\v -> go v seed (MV.length v - 1)) v0
+shuffleVector v0 seed = V.modify (\v -> go v seed (MV.length v)) v0
   where
     {-# INLINE go #-}
     go v = go' 
       where
         {-# INLINE go' #-}
         go' !seed !i 
-          | i <= 0    = return ()
+          | i <= 1    = return ()
           | otherwise = do
-            let (seed',j) = generate (uniformR 0 (i + 1)) seed
-            MV.unsafeSwap v i j
-            go' seed' (i - 1)
+            let destination = i - 1
+                (seed',source) = generate (uniformR 0 destination) seed
+            MV.unsafeSwap v source destination
+            go' seed' destination
 
 {-# INLINE choose #-}
 choose :: forall a. (Bounded a,Enum a) => Generator a
