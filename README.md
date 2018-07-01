@@ -64,33 +64,25 @@ The implementation of SFMT doesn't naturally support bounded variate generation.
 
 ### Generators 
 
-Simple pure generator usage.
+Simple pure generators.
 
 ```haskell
-main = do
-  seed0 <- newSeed
-  let (seed1,i)  = step int seed0
-      (seed2,d)  = step double seed1
-      (seed3,b)  = step bool seed2
-      (seed4,i') = step (intR 0 10) seed3
-      (_,d')     = step (doubleR 1.5 2.5) seed4
-  print (i,d,b,i',d')
+newtype Generator a = Generator { generate :: Seed -> (Seed,a) }
+instance Functor, Applicative, Monad
 ```
 
 ### Composability
-
-`Generator` has an instance of `Functor`, `Applicative`, and `Monad`.
 
 ```haskell
 data C = Double :+ Double
 
 randomC :: Generator C
-randomC = pure (:+) <*> double <*> double
+randomC = pure (:+) <*> uniform <*> uniform
 
 randomC' :: Generator C
 randomC' = do
-  d1 <- double
-  d2 <- double
+  d1 <- uniformR 0 255
+  d2 <- uniformR 0 255
   return (d1 :+ d2)
 ```
 
@@ -117,7 +109,7 @@ names = sample ["Alice","Bob","Charlie","Dan","Elaine"]
 
 main = do
   seed <- newSeed
-  print (step names seed)
+  print (generate names seed)
 ```
 
 Generate arbitrary bounded enumerables.
