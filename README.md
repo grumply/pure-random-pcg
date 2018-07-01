@@ -12,7 +12,7 @@ On 64-bit GHC, the period for this variant of pcg is 2^64, which you'd be unlike
 
 RXS-M-XS has a much smaller period than MWC8222 or Mersenne Twister, but is 3-5x faster than SFMT(SIMD Fast Mersenne Twister), and 2-7x faster than MWC8222. 
 
-The implementation of SFMT doesn't naturally support bounded variate generation. All testing done using similar loops compiled with `-fllvm -O2` SFMT was compiled with SSE2/SIMD enabled.
+The implementation of SFMT doesn't naturally support bounded variate generation. All testing done using similar loops compiled with `-fllvm -O2`. SFMT was compiled with SSE2/SIMD enabled.
 
 | Algorithm    | Int   | Int8  | Int16 | Int32 | Int64 |
 | ------------ | ----- | ----- | ----- | ----- | ----- | 
