@@ -10,7 +10,7 @@ Be sure not to draw more than 2^32 variates from a single `Seed` on GHCJS or 32-
 
 On 64-bit GHC, the period for this variant of pcg is 2^64, which you'd be unlikely to exhaust.
 
-RXS-M-XS has a much smaller period than MWC8222 or Mersenne Twister, but is about 7x faster than MWC8222 and 15-20x faster than Mersenne Twister.
+RXS-M-XS has a much smaller period than MWC8222 or Mersenne Twister, but is about 5x faster than SFMT(SIMD Fast Mersenne Twister), and 7x faster than MWC8222.
 
 ## Features
 
