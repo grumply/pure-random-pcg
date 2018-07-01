@@ -13,6 +13,7 @@ import Pure.Random.PCG.Internal
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as MV
 import qualified Data.Vector.Generic as G
+import qualified Data.Vector.Unboxed as U
 
 import qualified System.Random
 
@@ -259,18 +260,21 @@ uniformVector n =
 --
 -- > pure sub <*> uniform
 --
+{-# INLINE sub #-}
 sub :: Double -> Double
 sub = subtract (2**(-53))
 
 -- structural `succ` for Double
+{-# INLINE sup #-}
 sup :: Double -> Double
 sup = (+ (2**(-53)))
 
 -- structural `pred` for Float
+{-# INLINE subFloat #-}
 subFloat :: Float -> Float
 subFloat = subtract (2**(-33))
 
 -- structural `succ` for Float
+{-# INLINE supFloat #-}
 supFloat :: Float -> Float
 supFloat = (+ (2**(-33)))
-

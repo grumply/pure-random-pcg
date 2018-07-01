@@ -18,6 +18,7 @@ library
 
   exposed-modules:
     Pure.Random
+    Pure.Random.Distributions
     Pure.Random.PCG
     Pure.Random.PCG.Internal
 

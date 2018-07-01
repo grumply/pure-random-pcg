@@ -7,6 +7,8 @@ import Data.Word
 import Data.Int
 import qualified System.Random
 
+import qualified Data.Vector.Unboxed as U
+
 #ifndef __GHCJS__
 #import "MachDeps.h"
 {-# INLINE newSeed #-}
@@ -177,3 +179,22 @@ wordsTo64Bit x y =
 wordToBool :: Word32 -> Bool
 wordToBool i = (i .&. 1) /= 0
 {-# INLINE wordToBool #-}
+
+data T = T {-# UNPACK #-}!Double {-# UNPACK #-}!Double 
+
+{-# NOINLINE blocks #-}
+blocks :: U.Vector Double
+blocks = (`U.snoc` 0) . U.cons (v/f) . U.cons rNorm . U.unfoldrN 126 go $! T rNorm f
+  where
+    go (T b g) = let !u = T h (exp (-0.5 * h * h))
+                     h  = sqrt (-2 * log (v / b + g))
+                 in Just (h, u)
+    v = 9.91256303526217e-3
+    f = exp (-0.5 * rNorm * rNorm)
+
+rNorm :: Double
+rNorm = 3.442619855899
+
+{-# NOINLINE ratios #-}
+ratios :: U.Vector Double
+ratios = U.zipWith (/) (U.tail blocks) blocks

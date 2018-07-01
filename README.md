@@ -135,3 +135,5 @@ main = do
 ### Thanks
 
 This library was inspired by [Max Goldstein's](https://github.com/mgold) [elm-random-pcg](https://github.com/mgold/elm-random-pcg).
+
+Much of the Distribution and range generation code comes from [Bryan O'Sullivan's](https://github.com/bos) [mwc-random](https://github.com/bos/mwc-random).
