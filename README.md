@@ -10,7 +10,45 @@ Be sure not to draw more than 2^32 variates from a single `Seed` on GHCJS or 32-
 
 On 64-bit GHC, the period for this variant of pcg is 2^64, which you'd be unlikely to exhaust.
 
-RXS-M-XS has a much smaller period than MWC8222 or Mersenne Twister, but is about 5x faster than SFMT(SIMD Fast Mersenne Twister), and 7x faster than MWC8222.
+RXS-M-XS has a much smaller period than MWC8222 or Mersenne Twister, but is about 5x faster than SFMT(SIMD Fast Mersenne Twister), and 7x faster than MWC8222. 
+
+The implementation of SFMT doesn't naturally support bounded variate generation. All testing done using similar loops compiled with `-fllvm -O2` SFMT was compiled with SSE2/SIMD enabled.
+
+| Algorithm    | Int   | Int8  | Int16 | Int32 | Int64 |
+| ------------ | ----- | ----- | ----- | ----- | ----- | 
+| RXS-M-XS pcg | 1ns   | 1ns   | 1ns   | 1ns   | 1ns   | 
+| SFMT         | 3.3ns | 3.3ns | 3.3ns | 3.3ns | 3.3ns |
+| MWC8222      | 7ns   | 3.7ns | 3.7ns | 3.7ns | 7ns   |
+
+
+| Algorithm    | Bounded Int* | Bounded Int8 | Bounded Int16 | Bounded Int32 | Bounded Int64* |
+| ------------ | ------------ | ------------ | ------------- | ------------- | -------------- |
+| RXS-M-XS pcg | 12ns/1ns     | 1ns          | 1ns           | 1ns           | 5ns/1ns        |
+| MWC8222      | 22ns/7.4ns   | 8.5ns        | 7.7ns         | 7.2ns         | 14.9ns/7.4ns   |
+
+| Algorithm    | Word  | Word8 | Word16 | Word32 | Word64 |
+| ------------ | ----- | ----- | ------ | ------ | ------ |
+| RXS-M-XS pcg | 1ns   | 1ns   | 1ns    | 1ns    | 1ns    |
+| SFMT         | 3.3ns | 3.3ns | 3.3ns  | 3.5ns  | 3.5ns  |
+| MWC8222      | 7ns   | 3.7ns | 3.7ns  | 3.7ns  | 7ns    |
+
+| Algorithm    | Bounded Word* | Bounded Word8 | Bounded Word16 | Bounded Word32 | Bounded Word64* |
+| ------------ | ------------- | ------------- | -------------- | -------------- | --------------- |
+| RXS-M-XS     | 5.2ns/1ns     | 1ns           | 1ns            | 1ns            | 5.2ns/1ns       |
+| MWC8222      | 17.3ns/7.8ns  | 8.5ns         | 7.7ns          | 7.2n           | 17.3ns/7.3ns    |
+
+| Algorithm    | Double | Float | 
+| ------------ | ------ | ----- | 
+| RXS-M-XS pcg | 1ns    | 1ns   |
+| SFMT         | 4.8ns  | -     |
+| MWC8222      | 7.5ns  | 3.7ns |
+
+| Algorithm    | Bounded Double | Bounded Float |
+| ------------ | -------------- | ------------- |
+| RXS-M-XS pcg | 1ns            | 1ns           |
+| MWC8222      | 7.6ns          | 3.8ns         |
+
+* Bounded Ints/Int64/Word/Word64 in (lo,hi) can be more efficiently produced if (hi - lo < maxBound :: Int32)
 
 ## Features
 
