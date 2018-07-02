@@ -241,9 +241,9 @@ independentSeed = Generator go
             !seed' = pcg_next (Seed state incr)
         in (seed',seed1)
 
-{-# INLINE uniformVector #-}
-uniformVector :: forall v a. (G.Vector v a, Variate a) => Int -> Generator (v a)
-uniformVector n = 
+{-# INLINE vector #-}
+vector :: forall v a. (G.Vector v a) => Int -> Generator a -> Generator (v a)
+vector n g = 
     -- Since the state isn't recoverable from G.unfoldrN, 
     -- we use an independent seed.
     pure (G.unfoldrN n go) <*> independentSeed
@@ -251,7 +251,7 @@ uniformVector n =
     {-# INLINE go #-}
     go :: Seed -> Maybe (a,Seed)
     go seed = 
-        let (seed',a) = generate uniform seed
+        let (seed',a) = generate g seed
         in Just (a,seed')
 
 -- structural `pred` for Double
