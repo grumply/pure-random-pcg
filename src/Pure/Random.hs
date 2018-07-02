@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP, FlexibleContexts, TypeFamilies, ScopedTypeVariables, BangPatterns, MagicHash, UnboxedTuples #-}
 module Pure.Random (module Pure.Random, module Pure.Random.PCG, System.Random.RandomGen(..), System.Random.Random(..)) where
 
+import Control.Monad.ST
 import Data.Bits
 import Data.Foldable as F
 import Data.Int
@@ -10,12 +11,16 @@ import Data.Word
 import Pure.Random.PCG
 import Pure.Random.PCG.Internal
 
+import Control.Monad.Primitive
+
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as MV
 import qualified Data.Vector.Generic as G
+import qualified Data.Vector.Generic.Mutable as GM
 import qualified Data.Vector.Unboxed as U
 
 import qualified System.Random
+
 
 #ifndef __GHCJS__
 #import "MachDeps.h"
@@ -168,15 +173,15 @@ sample :: Foldable f => f a -> Generator (Maybe a)
 sample = sampleVector . V.fromList . F.toList
 
 {-# INLINE sampleVector #-}
-sampleVector :: V.Vector a -> Generator (Maybe a)
+sampleVector :: G.Vector v a => v a -> Generator (Maybe a)
 sampleVector v =
-    let !l = V.length v
+    let !l = G.length v
     in if l == 0 then pure Nothing else Generator (go l)
   where
     {-# INLINE go #-}
     go len seed =
         let (!seed',!l) = generate (uniformR 0 (len - 1)) seed
-            x = V.unsafeIndex v l
+            x = G.unsafeIndex v l
         in (seed',Just x)
 
 {-# INLINE shuffle #-}
@@ -184,20 +189,21 @@ shuffle :: [a] -> Seed -> [a]
 shuffle as = V.toList . shuffleVector (V.fromList as)
 
 {-# INLINE shuffleVector #-}
-shuffleVector :: V.Vector a -> Seed -> V.Vector a
-shuffleVector v0 seed = V.modify (\v -> go v seed (MV.length v)) v0
+shuffleVector :: G.Vector v a => v a -> Seed -> v a
+shuffleVector v0 seed = G.modify (flip shuffleMVector seed) v0
+
+{-# INLINE shuffleMVector #-}
+shuffleMVector :: (PrimMonad m, GM.MVector v a) => v (PrimState m) a -> Seed -> m ()
+shuffleMVector v = go (GM.length v)
   where
     {-# INLINE go #-}
-    go v = go' 
-      where
-        {-# INLINE go' #-}
-        go' !seed !i 
-          | i <= 1    = return ()
-          | otherwise = do
-            let destination = i - 1
-                (seed',source) = generate (uniformR 0 destination) seed
-            MV.unsafeSwap v source destination
-            go' seed' destination
+    go !i !seed
+      | i <= 1    = return ()
+      | otherwise = do
+        let destination = i - 1
+            (seed',source) = generate (uniformR 0 destination) seed
+        GM.unsafeSwap v source destination
+        go destination seed' 
 
 {-# INLINE choose #-}
 choose :: forall a. (Bounded a,Enum a) => Generator a
