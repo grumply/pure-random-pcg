@@ -126,10 +126,10 @@ The implementation of SFMT doesn't naturally support bounded variate generation.
 | random       | 860ns | 300ns | 300ns | 527ns | 810ns |
 
 
-| Algorithm    | Bounded Int* | Bounded Int8 | Bounded Int16 | Bounded Int32 | Bounded Int64* |
+| Algorithm    | Bounded Int  | Bounded Int8 | Bounded Int16 | Bounded Int32 | Bounded Int64  |
 | ------------ | ------------ | ------------ | ------------- | ------------- | -------------- |
-| RXS-M-XS pcg | 12ns/1ns     | 1ns          | 1ns           | 1ns           | 5ns/1ns        |
-| MWC8222      | 22ns/7.4ns   | 8.5ns        | 7.7ns         | 7.2ns         | 14.9ns/7.4ns   |
+| RXS-M-XS pcg | 12ns/1ns*    | 1ns          | 1ns           | 1ns           | 5ns/1ns*       |
+| MWC8222      | 22ns/7.4ns*  | 8.5ns        | 7.7ns         | 7.2ns         | 14.9ns/7.4ns*  |
 | random       | 300-850ns**  | 300ns        | 300-310ns**   | 300-500ns**   | 300-850ns      |        
 
 | Algorithm    | Word  | Word8 | Word16 | Word32 | Word64 |
@@ -139,10 +139,10 @@ The implementation of SFMT doesn't naturally support bounded variate generation.
 | MWC8222      | 7ns   | 3.7ns | 3.7ns  | 3.7ns  | 7ns    |
 | random       | 800ns | 300ns | 300ns  | 500ns  | 810ns  |
 
-| Algorithm    | Bounded Word* | Bounded Word8 | Bounded Word16 | Bounded Word32 | Bounded Word64* |
+| Algorithm    | Bounded Word  | Bounded Word8 | Bounded Word16 | Bounded Word32 | Bounded Word64  |
 | ------------ | ------------- | ------------- | -------------- | -------------- | --------------- |
-| RXS-M-XS     | 5.2ns/1ns     | 1ns           | 1ns            | 1ns            | 5.2ns/1ns       |
-| MWC8222      | 17.3ns/7.8ns  | 8.5ns         | 7.7ns          | 7.2n           | 17.3ns/7.3ns    |
+| RXS-M-XS     | 5.2ns/1ns*    | 1ns           | 1ns            | 1ns            | 5.2ns/1ns*      |
+| MWC8222      | 17.3ns/7.8ns* | 8.5ns         | 7.7ns          | 7.2n           | 17.3ns/7.3ns*   |
 | random       | 300-850ns**   | 300ns         | 300-310ns**    | 300-500ns**    | 300-850ns**     |
 
 | Algorithm    | Double | Float | 
