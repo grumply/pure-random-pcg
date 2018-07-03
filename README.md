@@ -2,16 +2,6 @@
 
 Implementation of the [RXS-M-XS](https://en.wikipedia.org/wiki/Permuted_congruential_generator#Variants) variant of the [permuted-congruential-generator](https://en.wikipedia.org/wiki/Permuted_congruential_generator) suite. RXS-M-XS was chosen for best browser performance.
 
-On a 2012 Intel i7-3770 @ 3.4GHz, this implementation achieves throughputs of +60Gb/s (64-bit ints); 1,000,000,000 per second.
-
-On the same machine in Chrome v67, this implementation achieves thoughputs of 1Gb/s (32-bit ints); 33,000,000 per second.
-
-Be sure not to draw more than 2^32 variates from a single `Seed` on GHCJS or 32-bit GHC. If you need that many random values, use `independentSeed` to generate more `Seed`s.
-
-On 64-bit GHC, the period for this variant of pcg is 2^64, which you'd be unlikely to exhaust.
-
-Keep in mind that pcg is **not** cryptographically secure.
-
 ## Features
 
 `pure-random-pcg` comes with a convenient set of combinators.
@@ -110,7 +100,19 @@ main = do
   print $ shuffle [1..10] seed
 ```
 
+### Important Notes
+
+On GHCJS and 32-bit GHC, this variant of pcg has a period of 2^32, meaning the pattern of random numbers will repeat after using the same `Seed` 2^32 times. If you need that many random values, use `independentSeed` to generate more seeds.
+
+On 64-bit GHC, the period for this variant of pcg is 2^64, which you'd be unlikely to exhaust.
+
+Keep in mind that pcg is **not** cryptographically secure.
+
 ### Performance
+
+On a 2012 Intel i7-3770 @ 3.4GHz, this implementation achieves throughputs of +60Gb/s (64-bit ints); 1,000,000,000 per second.
+
+On the same machine in Chrome v67, this implementation achieves thoughputs of 1Gb/s (32-bit ints); 33,000,000 per second.
 
 RXS-M-XS has a much smaller period than MWC8222 or Mersenne Twister, but is 3-5x faster than SFMT(SIMD Fast Mersenne Twister), and 2-7x faster than MWC8222, and nearly 300-1500x faster than `random`'s System.Random.
 
