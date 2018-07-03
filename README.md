@@ -10,7 +10,111 @@ Be sure not to draw more than 2^32 variates from a single `Seed` on GHCJS or 32-
 
 On 64-bit GHC, the period for this variant of pcg is 2^64, which you'd be unlikely to exhaust.
 
-RXS-M-XS has a much smaller period than MWC8222 or Mersenne Twister, but is 3-5x faster than SFMT(SIMD Fast Mersenne Twister), and 2-7x faster than MWC8222, and nearly 300-1500x faster than `random`'s System.Random. 
+Keep in mind that pcg is **not** cryptographically secure.
+
+## Features
+
+`pure-random-pcg` comes with a convenient set of combinators.
+
+### Generators 
+
+Simple generators.
+
+```haskell
+newtype Generator a = Generator { generate :: Seed -> (Seed,a) }
+```
+
+A variate type-class for uniform bounded and unbounded random variate generation.
+
+```haskell
+class Variate a where
+  uniform :: Generator a
+  uniformR :: a -> a -> Generator a
+```
+
+### Applicative and Monadic generation
+
+```haskell
+data C = Double :+ Double
+
+randomC :: Generator C
+randomC = pure (:+) <*> uniform <*> uniform
+
+randomC' :: Generator C
+randomC' = do
+  d1 <- uniformR 0 255
+  d2 <- uniformR 0 255
+  return (d1 :+ d2)
+```
+
+### Num instance
+
+```haskell
+inc :: Num a => Generator a -> Generator a
+inc = (1 +)
+```
+
+### Reproducibility
+
+`PCG` includes the ability to very quickly walk a `Seed` forwards or backwards via `advance` and `retract`.
+
+```retract n . advance n == id```
+
+```haskell
+main = do
+  seed0 <- newSeed
+  let seed1 = advance 1000 seed0
+      seed2 = retract 1000 seed1
+  print (seed0 == seed2) -- True
+```
+
+```haskell
+main = do
+  seed0 <- newSeed
+  let (seed1,_) = generate uniform seed0
+      seed2 = retract 1 seed1
+  print (seed0 == seed2) -- True
+```
+
+### Sampling
+
+Sample from a distribution uniformly at random.
+
+```haskell
+names = sample ["Alice","Bob","Charlie","Dan","Elaine"]
+
+main = do
+  seed <- newSeed
+  print (generate names seed)
+```
+
+Generate arbitrary bounded enumerables.
+
+```haskell
+data Dir = North | South | East | West deriving (Bounded,Enum,Show)
+
+main = do
+  seed <- newSeed
+  let dirs :: [Dir]
+      dirs = list choose seed
+  print $ take 10 dirs
+```
+
+### Shuffling
+
+Knuth Fisher-Yates shuffle.
+
+```haskell
+main = do
+  seed <- newSeed
+  print $ shuffle [1..10] seed
+```
+
+### Performance
+
+RXS-M-XS has a much smaller period than MWC8222 or Mersenne Twister, but is 3-5x faster than SFMT(SIMD Fast Mersenne Twister), and 2-7x faster than MWC8222, and nearly 300-1500x faster than `random`'s System.Random.
+
+In the end, you should pick the library with the API you like the best, as the performance of the RNG is dwarfed by what you do with the random numbers. Except for `System.Random`, don't use it when performance matters.
 
 The implementation of SFMT doesn't naturally support bounded variate generation. All testing done using similar loops compiled with `-fllvm -O2`. SFMT was compiled with SSE2/SIMD enabled.
 
@@ -57,80 +161,6 @@ The implementation of SFMT doesn't naturally support bounded variate generation.
 \* Bounded Ints/Int64/Word/Word64 in (lo,hi) can be more efficiently produced if (hi - lo < maxBound :: Int32)
 
 \** random takes longer for larger ranges
-
-## Features
-
-`pure-random-pcg` comes with a convenient set of combinators.
-
-### Generators 
-
-Simple pure generators.
-
-```haskell
-newtype Generator a = Generator { generate :: Seed -> (Seed,a) }
-instance Functor, Applicative, Monad
-```
-
-### Composability
-
-```haskell
-data C = Double :+ Double
-
-randomC :: Generator C
-randomC = pure (:+) <*> uniform <*> uniform
-
-randomC' :: Generator C
-randomC' = do
-  d1 <- uniformR 0 255
-  d2 <- uniformR 0 255
-  return (d1 :+ d2)
-```
-
-### Reproducibility with fast-forward and rewind 
-
-`PCG` includes the interesting property that seeds can be very quickly walked forwards or backwards via `advance` and `retract`.
-
-```retract n . advance n == id```
-
-```haskell
-main = do
-  seed <- newSeed
-  let seed' = advance 1000 seed
-      seed'' = retract 1000 seed'
-  print (seed == seed'') -- True
-```
-
-### Simple Helpers
-
-Sample from a distribution uniformly at random.
-
-```haskell
-names = sample ["Alice","Bob","Charlie","Dan","Elaine"]
-
-main = do
-  seed <- newSeed
-  print (generate names seed)
-```
-
-Generate arbitrary bounded enumerables.
-
-```haskell
-data Dir = North | South | East | West deriving (Bounded,Enum,Show)
-
-main = do
-  seed <- newSeed
-  let dirs :: [Dir]
-      dirs = list choose seed
-  print $ take 10 dirs
-```
-
-Knuth Fisher-Yates shuffle.
-
-```haskell
-main = do
-  seed <- newSeed
-  print $ shuffle [1..10] seed
-```
 
 ### Thanks
 
