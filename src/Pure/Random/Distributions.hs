@@ -14,50 +14,6 @@ import Data.Word
 import qualified Data.Vector.Generic as G
 import qualified Data.Vector.Unboxed as U
 
-{-# INLINE poisson #-}
-poisson :: Double -> Generator Double
-poisson lam = Generator start
-  where
-    {-# INLINE start #-}
-    start seed = 
-      let (seed',u) = generate uniform seed
-          t = exp (negate lam)
-      in (seed',go u 0 t t)
-      where
-        {-# INLINE go #-}
-        go u = loop
-          where
-            {-# INLINE loop #-}
-            loop !k !t !s
-              | s >= u    = k
-              | otherwise =
-                let k' = k + 1
-                    t' = t * lam / k'
-                    s' = s + t'
-                in loop k' t' s'
-
-{-# INLINE ztp #-}
-ztp :: Double -> Generator Double
-ztp lam = Generator start
-  where
-    {-# INLINE start #-}
-    start seed =
-      let (seed',u) = generate uniform seed
-          t = exp (negate lam) / (1 - exp (negate lam)) * lam
-      in (seed',go u 1 t t)
-      where
-        {-# INLINE go #-}
-        go u = loop
-          where
-            {-# INLINE loop #-}
-            loop !k !t !s
-              | s >= u    = k
-              | otherwise =
-                let k' = k + 1
-                    t' = t * lam / k'
-                    s' = s + t'
-                in loop k' t' s'
-
 -- Distributions ported from Bryan O'Sullivan's mwc-random
 
 {-# INLINE normal #-}
