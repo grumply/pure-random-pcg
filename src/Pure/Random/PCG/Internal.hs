@@ -19,7 +19,7 @@ newSeed = do
    return (initialSeed i)
 #else
 foreign import javascript unsafe 
-  "Math.floor(Math.random()*0xFFFFFFFF)" random_seed_js :: IO Int
+  "$r = Math.floor(Math.random()*0xFFFFFFFF)" random_seed_js :: IO Int
 newSeed :: IO Seed
 newSeed = initialSeed <$> random_seed_js
 #endif
