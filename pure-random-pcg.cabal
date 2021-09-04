@@ -18,7 +18,8 @@ library
     base,
     random,
     vector,
-    primitive
+    primitive,
+    ghc-prim
 
   exposed-modules:
     Pure.Random

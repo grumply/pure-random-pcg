@@ -32,8 +32,8 @@ randomC = pure (:+) <*> uniform <*> uniform
 
 randomC' :: Generator C
 randomC' = do
-  d1 <- uniformR 0 255
-  d2 <- uniformR 0 255
+  d1 <- uniform
+  d2 <- uniform
   return (d1 :+ d2)
 ```
 
@@ -102,17 +102,13 @@ main = do
 
 ### Important Notes
 
-On GHCJS and 32-bit GHC, this variant of pcg has a period of 2^32, meaning the pattern of random numbers will repeat after using the same `Seed` 2^32 times. If you need that many random values, use `independentSeed` to generate more seeds.
-
-On 64-bit GHC, the period for this variant of pcg is 2^64, which you'd be unlikely to exhaust.
-
 Keep in mind that pcg is **not** cryptographically secure.
 
 ### Performance
 
-On a 2012 Intel i7-3770 @ 3.4GHz, this implementation achieves throughputs of +60Gb/s (64-bit ints); 1,000,000,000 per second.
+On an i9-9880H, this implementation achieves throughput of 2 bytes per cycle (64Gb/s for 64-bit types).
 
-On the same machine in Chrome v67, this implementation achieves thoughputs of 1Gb/s (32-bit ints); 33,000,000 per second.
+On the same machine in Chrome v93, this implementation achieves thoughput of 1Gb/s for 32-bit types.
 
 Note that RXS-M-XS has a much smaller period than MWC8222 or Mersenne Twister, but is extremely performant. The major benefit of this implementation is the pure implementation that is compatible with GHCJS.
 
